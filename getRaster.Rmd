@@ -1,0 +1,53 @@
+---
+title: "Chloris"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+
+```{r}
+library(rgdal)
+library(raster)
+library(RPostgres)
+
+
+conn <- dbConnect(Postgres(), host = "bu-rstudio-connect.bu.edu",
+                  user = "chloris", password = "msspfall22",
+                  dbname = "chloris", sslmode="require") # SSL needed!
+query <- "SELECT path, row, date, band, filename, count(*) FROM landsat GROUP BY path, row, date, band, filename LIMIT 10"
+qdf <- dbGetQuery(conn, query)
+dbDisconnect(conn)
+qdf
+conninfo <- "PG:host=bu-rstudio-connect.bu.edu user=chloris dbname=chloris password=msspfall22 table=landsat mode=2 where='date=\\'2021-10-17\\' AND band=\\'4\\''"
+GDALinfo(conninfo)
+
+getMaskValue = function(qa_array){
+  cloud_value = c(2800, 2804, 2808, 2812, 6896, 6900, 6904, 6908)
+  snow_value = c(3744, 3748)
+  maskValue = c()
+  qa_data = data.frame(cloud_value, snow_value)
+  for (i in 1:length(qa_array)) {
+    if (qa_array[i]){
+      maskValue = c(maskValue, qa_data[i])
+    }
+  }### error
+  return(unique(maskValue))
+}
+
+
+getMask = function(getDate, getBand, qa_array){
+  tmp_con = paste("PG:host=bu-rstudio-connect.bu.edu user=chloris dbname=chloris password=msspfall22 table=landsat mode=2 where='date=\\'", getDate, "\\' AND band=\\'", getBand, "\\''", sep = "")
+  tmp_con_QA = paste("PG:host=bu-rstudio-connect.bu.edu user=chloris dbname=chloris password=msspfall22 table=landsat mode=2 where='date=\\'", getDate, "\\' AND band=\\'QA\\''", sep = "")
+  r <- raster(readGDAL(tmp_con))
+  r_QA <- raster(readGDAL(tmp_con_QA))
+  maskValue = getMaskValue(qa_array)
+  r_mask =  mask(r, r_QA, maskvalue = maskValue, updatvalue = NA, inverse = TRUE)
+  plot(r_mask)
+}
+```
+

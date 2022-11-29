@@ -28,14 +28,22 @@ GDALinfo(conninfo)
 
 getMaskValue = function(qa_array){
   cloud_value = c(2800, 2804, 2808, 2812, 6896, 6900, 6904, 6908)
-  snow_value = c(3744, 3748)
+  cloudshadow_value = c(2976, 2980, 2984, 2988, 3008, 3012, 3016, 3020, 7072, 7076, 7080, 7084, 7104, 7108, 7112, 7116)
+  snowice_value = c(3744, 3748, 3752, 3756, 3776, 3780, 3784, 3788, 7840, 7844, 7848, 7852, 7872, 7876, 7880, 7884)
+  cirrus_value = c(6816, 6820, 6824, 6828, 6848, 6852, 6856, 6860, 6896, 6900, 6904, 6908, 7072, 7076, 7080, 7084, 7104, 7108, 7112, 7116, 7840, 7844, 7848, 7852, 7872, 7876, 7880, 7884)
   maskValue = c()
-  qa_data = data.frame(cloud_value, snow_value)
-  for (i in 1:length(qa_array)) {
-    if (qa_array[i]){
-      maskValue = c(maskValue, qa_data[i])
-    }
-  }### error
+  if (qa_array[1]){
+    maskValue = c(maskValue, cloud_value)
+  }
+  if (qa_array[2]){
+    maskValue = c(maskValue, cloudshadow_value)
+  }
+  if (qa_array[3]){
+    maskValue = c(maskValue, snowice_value)
+  }
+  if (qa_array[4]){
+    maskValue = c(maskValue, cirrus_value)
+  }
   return(unique(maskValue))
 }
 
@@ -46,6 +54,7 @@ getMask = function(getDate, getBand, qa_array){
   r <- raster(readGDAL(tmp_con))
   r_QA <- raster(readGDAL(tmp_con_QA))
   maskValue = getMaskValue(qa_array)
+  #maskValue = c(2720, 2724)
   r_mask =  mask(r, r_QA, maskvalue = maskValue, updatvalue = NA, inverse = TRUE)
   plot(r_mask)
 }

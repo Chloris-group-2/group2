@@ -19,7 +19,7 @@ library(RPostgres)
 conn <- dbConnect(Postgres(), host = "bu-rstudio-connect.bu.edu",
                   user = "chloris", password = "msspfall22",
                   dbname = "chloris", sslmode="require") # SSL needed!
-query <- "SELECT path, row, date, band, filename, count(*) FROM landsat GROUP BY path, row, date, band, filename LIMIT 10"
+query <- "SELECT path, row, date, band, filename, count(*) FROM landsat GROUP BY path, row, date, band, filename LIMIT 1000"
 qdf <- dbGetQuery(conn, query)
 dbDisconnect(conn)
 qdf
@@ -27,22 +27,22 @@ conninfo <- "PG:host=bu-rstudio-connect.bu.edu user=chloris dbname=chloris passw
 GDALinfo(conninfo)
 
 
-getrcl = function(qa_array){
+getrcl = function(condition_array){
   cloud_value = c(2800, 2804, 2808, 2812, 6896, 6900, 6904, 6908)
   cloudshadow_value = c(2976, 2980, 2984, 2988, 3008, 3012, 3016, 3020, 7072, 7076, 7080, 7084, 7104, 7108, 7112, 7116)
   snowice_value = c(3744, 3748, 3752, 3756, 3776, 3780, 3784, 3788, 7840, 7844, 7848, 7852, 7872, 7876, 7880, 7884)
   cirrus_value = c(6816, 6820, 6824, 6828, 6848, 6852, 6856, 6860, 6896, 6900, 6904, 6908, 7072, 7076, 7080, 7084, 7104, 7108, 7112, 7116, 7840, 7844, 7848, 7852, 7872, 7876, 7880, 7884)
   rclValue = c()
-  if (qa_array[1]){
+  if (condition_array[1]){
     rclValue = c(rclValue, cloud_value)
   }
-  if (qa_array[2]){
+  if (condition_array[2]){
     rclValue = c(rclValue, cloudshadow_value)
   }
-  if (qa_array[3]){
+  if (condition_array[3]){
     rclValue = c(rclValue, snowice_value)
   }
-  if (qa_array[4]){
+  if (condition_array[4]){
     rclValue = c(rclValue, cirrus_value)
   }
   if (length(rclValue) == 0){
@@ -54,17 +54,55 @@ getrcl = function(qa_array){
   return(rcl)
 }
 
-getMask = function(getDate, getBand, qa_array){
+getMask = function(getDate, getBand, condition_array){
   tmp_con = paste("PG:host=bu-rstudio-connect.bu.edu user=chloris dbname=chloris password=msspfall22 table=landsat mode=2 where='date=\\'", getDate, "\\' AND band=\\'", getBand, "\\''", sep = "")
   tmp_con_QA = paste("PG:host=bu-rstudio-connect.bu.edu user=chloris dbname=chloris password=msspfall22 table=landsat mode=2 where='date=\\'", getDate, "\\' AND band=\\'QA\\''", sep = "")
   r <- raster(readGDAL(tmp_con))
   r_QA <- raster(readGDAL(tmp_con_QA))
-  rcl = getrcl(qa_array)
+  rcl = getrcl(condition_array)
   r_mask = reclassify(r_QA, rcl)
   #maskValue = c(2720, 2724)
   r_mask =  mask(r, r_mask, maskvalue = 3, updatvalue = NA, inverse = FALSE)
   plot(r_mask)
 }
+
+
+### That's what Team 1 may need
+### enter an array of QA value and an string of condition set(e.g, c(0,0,1,1)), return an array of 0 and 1
+
+getQAarray = function(qa_array, condition_array){
+  classifly_array = rep(1, length(qa_array))
+  for (i in 1:length(qa_array)) {
+    qa_bit = number2binary(qa_array[i], 16)
+    zerone = rep(0, 4)
+    if (qa_bit[12]==1){
+      zerone[1] = 1
+    }
+    if (qa_bit[8] * qa_bit[9]==1){
+      zerone[2] = 1
+    }
+    if (qa_bit[6] * qa_bit[7]==1){
+      zerone[3] = 1
+    }
+    if (qa_bit[4] * qa_bit[5]==1){
+      zerone[4] = 1
+    }
+    if(sum(condition_array & zerone)>0){
+      classifly_array[i] = 0
+    }
+  }
+  return(classifly_array)
+}
+
+number2binary = function(number, noBits) {
+     binary_vector = rev(as.numeric(intToBits(number)))
+     if(missing(noBits)) {
+        return(binary_vector)
+    } else {
+          binary_vector[-(1:(length(binary_vector) - noBits))]
+    }
+}
+
 ```
 
 
